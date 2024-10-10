@@ -11,23 +11,22 @@ contract Voting is Ownable {
         uint votes;
     }
 
-    event AddedCandidate(string candidate_name);
-
     event CastedVote(uint candidate_id);
 
-    mapping(uint => Candidate) id_candidate_map;
-
-    mapping(uint => uint) candidate_votes_map;
-
     mapping(address => bool) address_has_voted_map;
+
+    mapping(uint => Candidate) id_candidate_map;
 
     uint candidatesCount;
 
     bool isVotingPeriodRunning;
 
-    constructor() Ownable(msg.sender) {
-        candidatesCount = 0;
+    constructor(string[] memory _candidate_names) Ownable(msg.sender) {
+        candidatesCount = _candidate_names.length;
         isVotingPeriodRunning = false;
+
+        for (uint i = 0; i < _candidate_names.length; i++)
+            id_candidate_map[i] = Candidate(i, _candidate_names[i], 0);
     }
 
     function getCandidate(uint id) public view returns (Candidate memory) {
@@ -46,17 +45,6 @@ contract Voting is Ownable {
         return candidatesCount;
     }
 
-    function addCandidate(string calldata candidate_name) public onlyOwner {
-        Candidate memory new_candidate = Candidate(
-            candidatesCount,
-            candidate_name,
-            0
-        );
-        id_candidate_map[candidatesCount] = new_candidate;
-        candidatesCount += 1;
-        emit AddedCandidate(new_candidate.name);
-    }
-
     function vote(uint candidate_id) public {
         require(isVotingPeriodRunning == true, "Voting period not running!");
         require(!address_has_voted_map[msg.sender], "You already voted!");
@@ -65,7 +53,6 @@ contract Voting is Ownable {
             "The candidate does not exist!"
         );
         address_has_voted_map[msg.sender] = true;
-        candidate_votes_map[candidate_id] += 1;
         id_candidate_map[candidate_id].votes += 1;
         emit CastedVote(candidate_id);
     }
@@ -73,18 +60,19 @@ contract Voting is Ownable {
     function getCandidateVotesCount(
         uint candidate_id
     ) public view returns (uint votes_count) {
-        return candidate_votes_map[candidate_id];
+        return id_candidate_map[candidate_id].votes;
     }
 
     function startVotingPeriod() public onlyOwner {
-        for (uint i = 0; i < candidatesCount; i++) {
-            candidate_votes_map[i] = 0;
-        }
         isVotingPeriodRunning = true;
     }
 
     function endVotingPeriod() public onlyOwner {
         isVotingPeriodRunning = false;
+    }
+
+    function getVotingPeriodStatus() public view returns (bool) {
+        return isVotingPeriodRunning;
     }
 
     function getWinner() public view returns (Candidate memory winner) {
@@ -94,7 +82,7 @@ contract Voting is Ownable {
         );
         uint winner_id = 0;
         for (uint i = 0; i < candidatesCount; i++) {
-            if (candidate_votes_map[i] > candidate_votes_map[winner_id]) {
+            if (id_candidate_map[i].votes > id_candidate_map[winner_id].votes) {
                 winner_id = i;
             }
         }
